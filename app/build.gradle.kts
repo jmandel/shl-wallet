@@ -1,19 +1,21 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "me.fhir.shcwallet"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "me.fhir.shcwallet"
-        minSdk = 35
-        targetSdk = 36
+        minSdk = 28
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -26,34 +28,86 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            applicationIdSuffix = ".debug"
+            isDebuggable = true
+        }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+}
+
+// Task to compile the Rust WASM module
+tasks.register("compileMatcherWasm", Exec::class) {
+    workingDir = rootProject.file("matcher_rs")
+    // Ensure Cargo is in the PATH or specify the full path to cargo
+    commandLine = listOf("cargo", "build", "--target", "wasm32-wasi", "--release")
+    // Optional: Add error handling or check for cargo presence
+    doFirst {
+        logger.lifecycle("Compiling matcher_rs WASM module...")
+    }
+    doLast {
+        logger.lifecycle("Finished compiling matcher_rs WASM module.")
+    }
+}
+
+// Task to copy the WASM file to assets before build
+tasks.register("copyMatcherWasm", Copy::class) {
+    dependsOn(tasks.named("compileMatcherWasm")) // Depend on the compilation task
+    from(rootProject.file("matcher_rs/target/wasm32-wasi/release/matcher_rs.wasm"))
+    into("src/main/assets")
+    include("matcher_rs.wasm")
+    rename { "matcher_rs.wasm" }
+    // Make sure the assets directory exists
+    doFirst {
+        File("src/main/assets").mkdirs()
+    }
+}
+
+// Make preBuild depend on our copy task
+tasks.named("preBuild") {
+    dependsOn("copyMatcherWasm")
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.google.material)
+    implementation(libs.google.guava)
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.credentials)
+//    implementation(libs.androidx.credentialsPlayServices)
+    implementation(libs.androidx.registry.provider)
+    implementation(libs.androidx.registry.provider.play.services)
+    implementation(libs.androidx.registry.digitalcredentials.mdoc)
+    implementation(libs.androidx.registry.digitalcredentials.preview)
+    implementation(libs.play.services.identity.credentials)
+    implementation(libs.androidx.biometric.ktx)
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 }

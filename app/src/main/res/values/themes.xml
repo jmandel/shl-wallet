@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!-- Base application theme. -->
+  <style name="Theme.SHCWallet" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Customize your theme here. -->
+  </style>
 
-    <style name="Theme.SHCWallet" parent="android:Theme.Material.Light.NoActionBar" />
+  <!-- Theme for Activities that should appear like dialogs/transparent -->
+  <style name="Theme.TransparentRequest" parent="Theme.Material3.DayNight.NoActionBar">
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowContentOverlay">@null</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowIsFloating">true</item> <!-- Optional: makes it more dialog-like -->
+    <item name="android:backgroundDimEnabled">false</item> <!-- Optional: remove dim behind window -->
+  </style>
 </resources>

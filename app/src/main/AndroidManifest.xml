@@ -10,7 +10,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SHCWallet">
+        android:theme="@style/Theme.SHCWallet"
+        tools:targetApi="35">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -22,6 +23,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Activity to handle Credential Manager requests -->
+        <activity
+            android:name=".GetCredentialActivity" 
+            android:exported="true"
+            android:theme="@style/Theme.TransparentRequest">
+            <intent-filter>
+                <action android:name="me.fhir.shcwallet.GET_HOBBIT_CREDENTIAL" /> 
+                <action android:name="androidx.credentials.registry.provider.action.GET_CREDENTIAL" />
+                <action android:name="androidx.identitycredentials.action.GET_CREDENTIALS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
