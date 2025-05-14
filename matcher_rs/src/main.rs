@@ -1,5 +1,6 @@
 use std::ffi::CString;
 use std::os::raw::c_char;
+use serde::Deserialize; // Added for Serde
 
 // Define the CallingAppInfo struct equivalent to the C struct
 #[repr(C)]
@@ -72,6 +73,26 @@ extern "C" {
 
 // Embed the icon data at compile time
 const ICON_DATA: &[u8] = include_bytes!("../credit-card.png");
+const TARGET_TAG: &str = "http://hl7.org/fhir/us/insurance-card/StructureDefinition/C4DIC-Coverage";
+
+// --- Rust structs for deserializing the manifest JSON ---
+#[derive(Deserialize, Debug)]
+struct ManifestAttribute { // New struct for attribute deserialization
+    name: String,
+    value: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ManifestCredentialEntry {
+    id: String,
+    tags: Vec<String>,
+    attributes: Vec<ManifestAttribute>, // Added attributes field
+}
+
+#[derive(Deserialize, Debug)]
+struct GlobalCredentialManifest {
+    credentials: Vec<ManifestCredentialEntry>,
+}
 
 // --- Rust-idiomatic credential presentation structure ---
 
@@ -141,35 +162,83 @@ impl CredentialPresentation {
     }
 }
 
+// Helper function to get the credentials JSON string from the host
+fn get_credentials_json_string() -> Result<String, String> {
+    let mut size: u32 = 0;
+    unsafe {
+        GetCredentialsSize(&mut size as *mut u32);
+    }
+
+    if size == 0 {
+        return Err("Credentials size reported as 0.".to_string());
+    }
+
+    let mut buffer: Vec<u8> = vec![0; size as usize];
+    let bytes_read;
+    unsafe {
+        bytes_read = ReadCredentialsBuffer(buffer.as_mut_ptr(), 0, size as usize);
+    }
+
+    if bytes_read == 0 && size != 0 {
+        // Allow 0 bytes read if size was also 0 (though we checked above)
+        // but if size > 0 and bytes_read = 0, it's an issue.
+        return Err("ReadCredentialsBuffer read 0 bytes while size > 0.".to_string());
+    }
+    
+    // Trim the buffer to actual bytes read, though they should ideally match size
+    buffer.truncate(bytes_read);
+
+    String::from_utf8(buffer).map_err(|e| format!("UTF-8 conversion error: {}", e))
+}
+
 // This is the main entry point for the WASM module.
 fn main() {
-    let hobbit_credential = CredentialPresentation {
-        cred_id_json: r#"{"id":"hobbit-credential-001","dcql_cred_id":"hobbit_data_request","provider_idx":0}"#.to_string(),
-        title: "Hobbit Identity Record".to_string(),
-        subtitle: "Issued by The Shire Council".to_string(),
-        icon_data: Some(ICON_DATA), // Pass the static icon data
-        disclaimer: None,
-        warning: None,
-        attributes: vec![
-            CredentialAttribute {
-                display_name: "Name".to_string(),
-                value: Some("Bilbo Baggins".to_string()),
-            },
-            CredentialAttribute {
-                display_name: "Birthplace".to_string(),
-                value: Some("The Shire, Middle-earth".to_string()),
-            },
-            // Example of an attribute with no value (NULL for C API)
-            // CredentialAttribute {
-            //     display_name: "Known Aliases".to_string(),
-            //     value: None,
-            // },
-        ],
-    };
+    match get_credentials_json_string() {
+        Ok(json_string) => {
+            // For debugging, try to print the fetched JSON string. 
+            // This requires the host to capture/log stdout from wasm.
+            // println!("Fetched credentials JSON: {}", json_string);
 
-    hobbit_credential.present();
+            match serde_json::from_str::<GlobalCredentialManifest>(&json_string) {
+                Ok(manifest) => {
+                    for entry in manifest.credentials {
+                        if entry.tags.iter().any(|tag| tag == TARGET_TAG) {
+                            // Format the cred_id for AddStringIdEntry as a JSON string like the original example
+                            let cred_ui_id_json = format!(r#"{{"id":"{}"}}"#, entry.id);
 
-    // No explicit return value needed for main returning ()
+                            // Map ManifestAttribute to CredentialAttribute for presentation
+                            let presentation_attributes: Vec<CredentialAttribute> = entry.attributes.into_iter().map(|attr_from_manifest| {
+                                CredentialAttribute {
+                                    display_name: attr_from_manifest.name,
+                                    value: Some(attr_from_manifest.value),
+                                }
+                            }).collect();
+
+                            let card = CredentialPresentation {
+                                cred_id_json: cred_ui_id_json,
+                                title: "SMART Health Coverage".to_string(),
+                                subtitle: format!("SHC ID: {}", entry.id), // Clarified subtitle
+                                icon_data: Some(ICON_DATA),
+                                disclaimer: None,
+                                warning: None,
+                                attributes: presentation_attributes, // Use attributes from manifest
+                            };
+                            card.present();
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Error deserializing JSON. For now, we don't have a robust way to report this
+                    // back to the host other than perhaps not adding any credentials.
+                    // println!("Failed to deserialize credentials JSON: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            // Error getting JSON string from host.
+            // println!("Failed to get credentials JSON from host: {}", e);
+        }
+    }
 }
 
 // To compile this for WASM:

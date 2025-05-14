@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.google.material)
     implementation(libs.google.guava)
+    implementation(libs.nimbus.jose.jwt)
     implementation(platform(libs.androidx.compose.bom))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -102,6 +103,12 @@ dependencies {
     implementation(libs.androidx.registry.digitalcredentials.preview)
     implementation(libs.play.services.identity.credentials)
     implementation(libs.androidx.biometric.ktx)
+
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.espresso.core)
