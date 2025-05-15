@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CombinedShcEntity::class], version = 3, exportSchema = false)
+@Database(entities = [CombinedShcEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun shcDao(): ShcDao
@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 // Wipes and rebuilds instead of migrating if no Migration object.
                 // Migration is not part of this example.
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART Health Card: Insurance Coverage Testbed</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #e6f7ff; color: #333; }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; transition: background-color 0.3s ease; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 15px; border: 1px solid #ced4da; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; }
+        .container { margin-bottom: 25px; padding: 15px; background-color: #ffffff; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .label { font-weight: bold; margin-bottom: 8px; color: #0056b3; }
+        #status { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 4px; }
+        .status-ready { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb;}
+        .status-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;}
+        .status-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;}
+        h1 { color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>SMART Health Card: Insurance Coverage Testbed</h1>
+
+    <p>
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Ensure you are using a compatible browser (e.g., Chrome 136+ on Android).</li>
+            <li>Enable the necessary browser flags for Digital Credentials (e.g., <code>chrome://flags#web-identity-digital-credentials</code>) and restart.</li>
+            <li>Have a compatible digital wallet app (like SHCWallet) installed and configured with a C4DIC Insurance Card credential.</li>
+            <li>Click the button below to initiate the request to share your insurance card.</li>
+        </ol>
+    </p>
+
+    <button id="requestCredentialBtn">Request Insurance Card</button>
+
+    <div class="container">
+        <div class="label">Status:</div>
+        <div id="status" class="status-ready">Ready</div>
+    </div>
+
+    <div class="container">
+        <div class="label">Request Details (Wallet Query):</div>
+        <pre id="requestPayload">N/A</pre>
+    </div>
+
+    <div class="container">
+        <div class="label">Response Received (SHC Data):</div>
+        <pre id="responsePayload">N/A</pre>
+    </div>
+
+    <div class="container">
+        <div class="label">Error (if any):</div>
+        <pre id="errorPayload">N/A</pre>
+    </div>
+
+    <script>
+        const requestBtn = document.getElementById('requestCredentialBtn');
+        const statusEl = document.getElementById('status');
+        const requestPayloadEl = document.getElementById('requestPayload');
+        const responsePayloadEl = document.getElementById('responsePayload');
+        const errorPayloadEl = document.getElementById('errorPayload');
+
+        function updateStatus(message, type = 'ready') { // type can be 'ready', 'success', 'error'
+            statusEl.textContent = message;
+            statusEl.className = ''; // Clear existing classes
+            if (type === 'success') {
+                statusEl.classList.add('status-success');
+            } else if (type === 'error') {
+                statusEl.classList.add('status-error');
+            } else {
+                statusEl.classList.add('status-ready');
+            }
+        }
+
+        function displayJSON(element, data) {
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        requestBtn.addEventListener('click', async () => {
+            updateStatus('Initiating insurance card request...');
+            requestPayloadEl.textContent = 'N/A';
+            responsePayloadEl.textContent = 'N/A';
+            errorPayloadEl.textContent = 'N/A';
+
+            if (!navigator.credentials || !navigator.credentials.get) {
+                updateStatus('Digital Credentials API (navigator.credentials.get) is not available in this browser.', 'error');
+                errorPayloadEl.textContent = 'navigator.credentials.get is undefined. Ensure you are on a compatible browser (e.g. Chrome 136+ Android) and the flag is enabled.';
+                return;
+            }
+
+            // Request specifically targeting a C4DIC Insurance Card
+            const credentialRequest = {
+                digital: {
+                    requests: [{
+                        // The protocol here is illustrative of what a wallet might expect.
+                        // The key part for your SHCWallet matcher is often within the 'data' or specific filter fields
+                        // that your WASM module can interpret from the manifest.
+                        // For this testbed, we'll simulate a request that asks for a credential with a specific tag.
+                        // Your WASM matcher is currently looking for the C4DIC tag in the manifest.
+                        // The actual `data` sent to the wallet from the browser via Credential Manager 
+                        // might be more abstract, and the wallet's matcher (your WASM) decides what to show.
+                        // This `data` below is to *represent* the kind of query.
+                        protocol: "smart-health-card", // Example protocol
+                        data: {
+                            "Coverage": {
+                                "_profile": "http://hl7.org/fhir/us/insurance-card/StructureDefinition/C4DIC-Coverage"
+                            }
+                        }
+                    }],
+                }
+            };
+
+            // Displaying the 'data' part which is most relevant to the type of credential being requested.
+            displayJSON(requestPayloadEl, credentialRequest.digital.requests[0].data);
+
+            try {
+                updateStatus('Awaiting user interaction with wallet...');
+                const controller = new AbortController();
+                
+                const result = await navigator.credentials.get({
+                    signal: controller.signal,
+                    digital: credentialRequest.digital 
+                });
+
+                updateStatus('Insurance Card received successfully!', 'success');
+                // The result.data for a DigitalCredential (like SHC) is typically the JSON string of the credential itself.
+                try {
+                    const shcData = JSON.parse(result.data); // Assuming result.data is a JSON string for SHC
+                    displayJSON(responsePayloadEl, { type: result.type, data: shcData, protocol: result.protocol });
+                } catch (parseError) {
+                    console.warn("Could not parse result.data as JSON, displaying as raw string:", result.data);
+                    displayJSON(responsePayloadEl, { type: result.type, data: result.data, protocol: result.protocol });
+                }
+                console.log('Digital Credential API Response:', result);
+
+            } catch (error) {
+                updateStatus('Error during insurance card request.', 'error');
+                errorPayloadEl.textContent = `Name: ${error.name}
+Message: ${error.message}
+
+Stack: ${error.stack || 'N/A'}`;
+                console.error('Digital Credential API Error:', error);
+            }
+        });
+
+        // Initial check
+        if (!navigator.credentials || !navigator.credentials.get) {
+            updateStatus('Digital Credentials API (navigator.credentials.get) seems unavailable. Check prerequisites.', 'error');
+        } else {
+            updateStatus('API seems available. Ready to request an Insurance Card.');
+        }
+
+    </script>
+</body>
+</html>

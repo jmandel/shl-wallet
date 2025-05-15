@@ -91,12 +91,11 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.credentials)
-//    implementation(libs.androidx.credentialsPlayServices)
+//    implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.androidx.registry.provider)
     implementation(libs.androidx.registry.provider.play.services)
     implementation(libs.androidx.registry.digitalcredentials.mdoc)
@@ -117,4 +116,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
+
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.material.icons.extended)
 }
